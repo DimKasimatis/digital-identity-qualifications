@@ -107,7 +107,8 @@ class InitechAgent(AriesAgent):
     def generate_proof_request_web_request(
         self, aip, cred_type, revocation, exchange_tracing, connectionless=False
     ):
-        j_code = 8765
+        j_code = 8524
+        j_code_limit = 9000
         d = datetime.date.today()
         if aip == 10:
             req_attrs = [
@@ -133,7 +134,7 @@ class InitechAgent(AriesAgent):
                     {
                         "name": "last_name",
                         "restrictions": [{"schema_name": "cv schema"}],
-                    }
+                    },
                 )
             if SELF_ATTESTED:
                 # test self-attested claims
@@ -147,6 +148,12 @@ class InitechAgent(AriesAgent):
                     "p_type": ">=",
                     "p_value": j_code,
                     "restrictions": [{"schema_name": "cv schema"}],
+                },
+                {
+                    "name": "job_code",
+                    "p_type": "<",
+                    "p_value": j_code_limit,
+                    "restrictions": [{"schema_name": "cv schema"}],
                 }
             ]
             indy_proof_request = {
@@ -156,7 +163,7 @@ class InitechAgent(AriesAgent):
                     f"0_{req_attr['name']}_uuid": req_attr for req_attr in req_attrs
                 },
                 "requested_predicates": {
-                    f"0_{req_pred['name']}_GE_uuid": req_pred for req_pred in req_preds
+                    f"0_{req_pred['name']}_{req_pred['p_type']}_uuid": req_pred for req_pred in req_preds
                 },
             }
 
