@@ -100,7 +100,32 @@ class NdiaAgent(AriesAgent):
                 "trace": exchange_tracing,
             }
             return offer_request
+        elif aip == 20:
+            if cred_type == CRED_FORMAT_INDY:
+                self.cred_attrs[cred_def_id] = {
+                    "first_name": "Alice",
+                    "last_name": "Smith",
+                    "job_code": str(8765),
+                    "date": "2023-04-28",
+                    "timestamp": str(int(time.time())),     
+                }
 
+                cred_preview = {
+                    "@type": CRED_PREVIEW_TYPE,
+                    "attributes": [
+                        {"name": n, "value": v}
+                        for (n, v) in self.cred_attrs[cred_def_id].items()
+                    ],
+                }
+                offer_request = {
+                    "connection_id": self.connection_id,
+                    "comment": f"Offer on cred def id {cred_def_id}",
+                    "auto_remove": False,
+                    "credential_preview": cred_preview,
+                    "filter": {"indy": {"cred_def_id": cred_def_id}},
+                    "trace": exchange_tracing,
+                }
+                return offer_request
 
         else:
             raise Exception(f"Error invalid AIP level: {self.aip}")
@@ -108,7 +133,7 @@ class NdiaAgent(AriesAgent):
     def generate_proof_request_web_request(
         self, aip, cred_type, revocation, exchange_tracing, connectionless=False
     ):
-        j_code = 8765
+        j_code = 8000
         j_code_limit = 9000
         d = datetime.date.today()
         if aip == 10:
@@ -178,10 +203,77 @@ class NdiaAgent(AriesAgent):
             if not connectionless:
                 proof_request_web_request["connection_id"] = self.connection_id
             return proof_request_web_request
+        
+        elif aip == 20:
+            if cred_type == CRED_FORMAT_INDY:
+                req_attrs = [
+                    {
+                        "name": "first_name",
+                        "restrictions": [{"schema_name": "cv schema"}],
+                    },
+                    {
+                        "name": "last_name",
+                        "restrictions": [{"schema_name": "cv schema"}],
+                    },
+                ]
+                if revocation:
+                    req_attrs.append(
+                        {
+                            "name": "last_name",
+                            "restrictions": [{"schema_name": "cv schema"}],
+                            "non_revoked": {"to": int(time.time() - 1)},
+                        },
+                    )
+                else:
+                    req_attrs.append(
+                        {
+                            "name": "last_name",
+                            "restrictions": [{"schema_name": "cv schema"}],
+                        }
+                    )
+                if SELF_ATTESTED:
+                    # test self-attested claims
+                    req_attrs.append(
+                        {"name": "self_attested_thing"},
+                    )
+                req_preds = [
+                    # test zero-knowledge proofs
+                    {
+                        "name": "job_code",
+                        "p_type": ">=",
+                        "p_value": j_code,
+                        "restrictions": [{"schema_name": "cv schema"}],
+                    }
+                    # ,
+                    #                     {
+                    #     "name": "job_code",
+                    #     "p_type": "<",
+                    #     "p_value": j_code_limit,
+                    #     "restrictions": [{"schema_name": "cv schema"}],
+                    # }
+                ]
+                indy_proof_request = {
+                    "name": "Proof of Qualifications",
+                    "version": "1.0",
+                    "requested_attributes": {
+                        f"0_{req_attr['name']}_uuid": req_attr for req_attr in req_attrs
+                    },
+                    "requested_predicates": {
+                        f"0_{req_pred['name']}_GE_uuid": req_pred
+                        for req_pred in req_preds
+                    },
+                }
 
+                if revocation:
+                    indy_proof_request["non_revoked"] = {"to": int(time.time())}
 
-        else:
-            raise Exception(f"Error invalid AIP level: {self.aip}")
+                proof_request_web_request = {
+                    "presentation_request": {"indy": indy_proof_request},
+                    "trace": exchange_tracing,
+                }
+                if not connectionless:
+                    proof_request_web_request["connection_id"] = self.connection_id
+                return proof_request_web_request
 
 
 async def main(args):
@@ -327,6 +419,23 @@ async def main(args):
                         "/issue-credential/send-offer", offer_request
                     )
 
+                elif ndia_agent.aip == 20:
+                    if ndia_agent.cred_type == CRED_FORMAT_INDY:
+                        offer_request = ndia_agent.agent.generate_credential_offer(
+                            ndia_agent.aip,
+                            ndia_agent.cred_type,
+                            ndia_agent.cred_def_id,
+                            exchange_tracing,
+                        )
+                    else:
+                        raise Exception(
+                            f"Error invalid credential type: {ndia_agent.cred_type}"
+                        )
+
+                    await ndia_agent.agent.admin_POST(
+                        "/issue-credential-2.0/send-offer", offer_request
+                    )
+
                 else:
                     raise Exception(f"Error invalid AIP level: {ndia_agent.aip}")
 
@@ -345,12 +454,41 @@ async def main(args):
                         "/present-proof/send-request", proof_request_web_request
                     )
                     pass
+                elif ndia_agent.aip == 20:
+                    if ndia_agent.cred_type == CRED_FORMAT_INDY:
+                        proof_request_web_request = (
+                            ndia_agent.agent.generate_proof_request_web_request(
+                                ndia_agent.aip,
+                                ndia_agent.cred_type,
+                                ndia_agent.revocation,
+                                exchange_tracing,
+                            )
+                        )
+
+                    elif ndia_agent.cred_type == CRED_FORMAT_JSON_LD:
+                        proof_request_web_request = (
+                            ndia_agent.agent.generate_proof_request_web_request(
+                                ndia_agent.aip,
+                                ndia_agent.cred_type,
+                                ndia_agent.revocation,
+                                exchange_tracing,
+                            )
+                        )
+
+                    else:
+                        raise Exception(
+                            "Error invalid credential type:" + ndia_agent.cred_type
+                        )
+
+                    await agent.admin_POST(
+                        "/present-proof-2.0/send-request", proof_request_web_request
+                    )
 
                 else:
                     raise Exception(f"Error invalid AIP level: {ndia_agent.aip}")
 
             elif option == "2a":
-                log_status("#20 Request * Connectionless * proof of degree from alice")
+                log_status("#20 Request * Connectionless * proof of qualifications from alice")
                 if ndia_agent.aip == 10:
                     proof_request_web_request = (
                         ndia_agent.agent.generate_proof_request_web_request(
