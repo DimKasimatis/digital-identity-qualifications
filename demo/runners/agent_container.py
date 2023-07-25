@@ -1392,6 +1392,7 @@ async def test_main(
 
     ndia_container = None
     alice_container = None
+    initech_container = None
     try:
         # initialize the containers
         ndia_container = AgentContainer(
@@ -1426,21 +1427,53 @@ async def test_main(
             seed=None,
             aip=aip,
         )
+        initech_container = AgentContainer(
+            genesis_txns=genesis,
+            ident="Initech.agent",
+            start_port=start_port,
+            no_auto=no_auto,
+            revocation=revocation,
+            tails_server_base_url=tails_server_base_url,
+            show_timing=show_timing,
+            multitenant=multitenant,
+            mediation=mediation,
+            use_did_exchange=use_did_exchange,
+            wallet_type=wallet_type,
+            public_did=True,
+            seed="random",
+            cred_type=cred_type,
+            aip=aip,
+        )
 
         # start the agents - ndia gets a public DID and schema/cred def
         await ndia_container.initialize(
-            schema_name="degree schema",
+            schema_name="cv schema",
             schema_attrs=[
-                "name",
+                "last_name",
                 "date",
-                "degree",
-                "grade",
+                "timestamp",
+                "job_code",
+                "first_name",
+            ],
+        )
+        # start the agents - initech gets a public DID and schema/cred def
+        await initech_container.initialize(
+            schema_name="cv schema",
+            schema_attrs=[
+                "last_name",
+                "date",
+                "timestamp",
+                "job_code",
+                "first_name",
             ],
         )
         await alice_container.initialize()
 
         # ndia create invitation
         invite = await ndia_container.generate_invitation()
+
+        # initech create invitation
+        invite = await initech_container.generate_invitation()
 
         # alice accept invitation
         invite_details = invite["invitation"]
@@ -1449,6 +1482,7 @@ async def test_main(
         # wait for ndia connection to activate
         await ndia_container.detect_connection()
         await alice_container.detect_connection()
+        await initech_container.detect_connection()
 
         # TODO ndia issue credential to alice
         # TODO alice check for received credential
@@ -1470,6 +1504,9 @@ async def test_main(
             if ndia_container:
                 log_msg("Shutting down ndia agent ...")
                 await ndia_container.terminate()
+            if initech_container:
+                log_msg("Shutting down initech agent ...")
+                await initech_container.terminate()
         except Exception as e:
             LOGGER.exception("Error terminating agent:", e)
             terminated = False

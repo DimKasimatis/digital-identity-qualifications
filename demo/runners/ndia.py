@@ -79,7 +79,7 @@ class NdiaAgent(AriesAgent):
             self.cred_attrs[cred_def_id] = {
                     "first_name": "Alice",
                     "last_name": "Smith",
-                    "job_code": str(int(8765)),
+                    "job_code": str(int(6524)),
                     "date": "2023-04-28",
                     "timestamp": str(int(time.time())),
             }
@@ -105,7 +105,7 @@ class NdiaAgent(AriesAgent):
                 self.cred_attrs[cred_def_id] = {
                     "first_name": "Alice",
                     "last_name": "Smith",
-                    "job_code": str(8765),
+                    "job_code": str(6524),
                     "date": "2023-04-28",
                     "timestamp": str(int(time.time())),     
                 }
@@ -133,8 +133,8 @@ class NdiaAgent(AriesAgent):
     def generate_proof_request_web_request(
         self, aip, cred_type, revocation, exchange_tracing, connectionless=False
     ):
-        j_code = 8000
-        j_code_limit = 9000
+        j_code = 6000
+        j_code_limit = 7000
         d = datetime.date.today()
         if aip == 10:
             req_attrs = [
@@ -244,13 +244,13 @@ class NdiaAgent(AriesAgent):
                         "p_value": j_code,
                         "restrictions": [{"schema_name": "cv schema"}],
                     }
-                    # ,
-                    #                     {
-                    #     "name": "job_code",
-                    #     "p_type": "<",
-                    #     "p_value": j_code_limit,
-                    #     "restrictions": [{"schema_name": "cv schema"}],
-                    # }
+                    ,
+                                        {
+                        "name": "job_code",
+                        "p_type": "<",
+                        "p_value": j_code_limit,
+                        "restrictions": [{"schema_name": "cv schema"}],
+                    }
                 ]
                 indy_proof_request = {
                     "name": "Proof of Qualifications",
